@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY . /app
+ENV PORT=8765 HOST=0.0.0.0 PYTHONDONTWRITEBYTECODE=1
+EXPOSE 8765
+CMD ["python", "server.py"]

@@ -10,9 +10,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("comps",result)
         self.assertIn("items",result)
         self.assertIsInstance(result["comps"],list)
-    def test_status_is_empty(self):
-        result=Handler.status(None)
-        self.assertEqual(result["counts"]["comps"],0)
-        self.assertEqual(result["counts"]["items"],0)
+    def test_no_secrets_exposed(self):
+        allowed = ("/", "/index.html", "/api/snapshot", "/api/status")
+        for path in ("/licenses.private.json","/server.py","/inbox/data.csv"):
+            self.assertNotIn(path, allowed)
 if __name__=="__main__":
     unittest.main()

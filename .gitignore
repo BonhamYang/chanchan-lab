@@ -1,0 +1,12 @@
+# Secrets and user-provided data
+.env
+.env.*
+!.env.example
+licenses.private.json
+inbox/
+data/audit.jsonl
+data/sync-status.json
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store

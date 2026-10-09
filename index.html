@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>铲铲实验室 - 阵容与装备数据</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#e8eef9;background:#0e1522}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:24px}
+header{background:#141f32;border-bottom:1px solid #2c3b50}h1{margin:0;font-size:25px;color:#f4cc80}h2{font-size:21px}
+.sub,.muted{color:#a3b4cc;font-size:13px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}
+select,input,button{color:inherit;background:#1c2b40;border:1px solid #3b4c65;border-radius:9px;padding:11px;font:inherit}
+button{cursor:pointer}button.active{background:#31537c;border-color:#77a4e9}
+input[type=file]{max-width:100%}.panel,.entry{background:#172337;border:1px solid #314057;border-radius:14px;padding:18px;margin:12px 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{background:#202e44;border-radius:10px;padding:12px}
+.k{font-size:12px;color:#a5b6cb}.v{font-size:23px;font-weight:bold;margin-top:4px}.good{color:#6bdeb0}
+header .wrap{display:flex;justify-content:space-between;align-items:center;gap:15px}.hidden{display:none}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #334259}th{color:#a9bdd9}
+.tag{display:inline-block;padding:3px 8px;background:#2c3e57;border-radius:30px;font-size:12px;color:#cfddf4}
+.warning{color:#ffce82}.empty{text-align:center;padding:36px 12px;color:#adc0db;line-height:1.9}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.wrap{padding:14px}.grid{grid-template-columns:1fr}.stats{gap:6px}.stat{padding:9px}.v{font-size:18px}header .wrap{align-items:start;flex-direction:column}}
+</style></head>
+<body><header><div class="wrap"><div><h1>⚔ 铲铲实验室</h1><div class="sub">金铲铲之战 · 阵容与装备统计工具</div></div><span class="tag">开发预览 · 无授权实时数据</span></div></header>
+<main class="wrap">
+<div class="toolbar"><select id="season"><option value="nature">自然之力</option><option value="ink">画之灵</option></select><select id="type"><option value="comps">阵容排行</option><option value="items">棋子三件套</option></select><select id="sort"><option value="top4">前四率 ↓</option><option value="win">登顶率 ↓</option><option value="avg">平均排名 ↑</option><option value="sample">样本量 ↓</option></select><input id="search" placeholder="搜索阵容或棋子"></div>
+<div class="panel"><div class="grid"><div><b>数据状态</b><div id="state" class="muted">正在检查...</div></div><div><b>数据更新</b><div id="updated" class="muted">暂无</div></div></div><p class="muted">没有可靠数据时会显示空状态，不编造胜率。导入文件仅保存在当前浏览器，本地自用不代表拥有公开展示许可。</p></div>
+<section id="results"></section>
+<section class="panel"><h2>导入合法获取的统计数据</h2><p class="muted">导入 JSON 文件，包含 comps、items 数组。每条记录需有 season（nature/ink）、name、patch、sample_count、top4_count、win_count、rank_sum。items 另需 unit 和 items（三件装备数组）。百分比由样本计数计算，不接受仅填胜率的记录。</p>
+<input id="upload" type="file" accept=".json,application/json"><button id="clear">清空本地数据</button>
+<div id="importMsg" class="muted"></div>
+<details><summary>查看 JSON 示例（所有数值为格式示意，非真实胜率）</summary><pre style="white-space:pre-wrap;font-size:12px">{"comps":[{"season":"nature","patch":"18.3","name":"测试阵容","sample_count":100,"top4_count":50,"win_count":10,"rank_sum":450}],"items":[{"season":"nature","patch":"18.3","name":"测试棋子装备","unit":"测试棋子","items":["装备A","装备B","装备C"],"sample_count":100,"top4_count":50,"win_count":10,"rank_sum":450}]}</pre></details></section>
+<footer class="muted" style="padding:20px 0">非官方工具 · 当前没有自动采集国服对局数据 · 请遵守数据使用许可</footer></main>
+<script>
+(function(){
+'use strict';
+var base={metadata:{status:'empty'},comps:[],items:[]},data=base;
+var E=id=>document.getElementById(id);
+var safe=s=>String(s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+var number=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
+var rate=(a,b)=>b?((a/b)*100).toFixed(1)+'%':'—';
+function valid(r,type){
+if(!r||!['nature','ink'].includes(r.season)||!r.patch||!r.name)return false;
+for(var k of ['sample_count','top4_count','win_count','rank_sum'])if(!number(r[k]))return false;
+if(!Number.isInteger(r.sample_count)||!Number.isInteger(r.top4_count)||!Number.isInteger(r.win_count)||r.sample_count<1)return false;
+if(r.top4_count>r.sample_count||r.win_count>r.top4_count||r.rank_sum<r.sample_count||r.rank_sum>r.sample_count*8)return false;
+return type!=='items'||(r.unit&&Array.isArray(r.items)&&r.items.length===3&&r.items.every(x=>typeof x==='string'));
+}
+function normalize(obj){
+if(!obj||!Array.isArray(obj.comps)||!Array.isArray(obj.items))throw Error('缺少 comps 或 items 数组');
+if(!obj.comps.every(x=>valid(x,'comps'))||!obj.items.every(x=>valid(x,'items')))throw Error('数据字段不完整或统计值不合理');
+return {metadata:obj.metadata||{status:'local-import',generated_at:new Date().toISOString()},comps:obj.comps,items:obj.items};
+}
+function render(){
+let season=E('season').value,kind=E('type').value,sort=E('sort').value,q=E('search').value.trim().toLowerCase();
+let arr=data[kind].filter(r=>r.season===season&&(r.name+' '+(r.unit||'')).toLowerCase().includes(q));
+arr.sort((a,b)=>sort==='top4'?b.top4_count/b.sample_count-a.top4_count/a.sample_count:sort==='win'?b.win_count/b.sample_count-a.win_count/a.sample_count:sort==='avg'?a.rank_sum/a.sample_count-b.rank_sum/b.sample_count:b.sample_count-a.sample_count);
+E('state').textContent=data.metadata.status==='empty'?'未接入真实统计':(data.metadata.status==='local-import'?'本地文件数据':String(data.metadata.status||'已加载快照'));
+E('updated').textContent=data.metadata.generated_at||'来源未提供更新时间';
+E('results').innerHTML=arr.length?arr.map(r=>'<article class="entry"><div style="display:flex;justify-content:space-between;gap:9px"><b>'+safe(r.name)+'</b><span class="tag">'+safe(r.patch)+' · '+safe(r.sample_count)+' 样本</span></div>'+(kind==='items'?'<p class="muted">棋子：'+safe(r.unit)+' ｜三件套：'+r.items.map(safe).join(' / ')+'</p>':'')+'<div class="stats"><div class="stat"><div class="k">前四率</div><div class="v good">'+rate(r.top4_count,r.sample_count)+'</div></div><div class="stat"><div class="k">登顶率</div><div class="v">'+rate(r.win_count,r.sample_count)+'</div></div><div class="stat"><div class="k">平均排名</div><div class="v">'+(r.rank_sum/r.sample_count).toFixed(2)+'</div></div></div></article>').join(''):'<div class="panel empty">当前筛选条件下暂无可验证的统计数据。<br>请导入获准使用的赛季数据，或等待正式数据源接入。</div>';
+}
+['season','type','sort','search'].forEach(id=>E(id).addEventListener(id==='search'?'input':'change',render));
+E('upload').addEventListener('change',async function(){try{let f=this.files[0];if(!f)return;if(f.size>5e6)throw Error('文件最大支持 5MB');data=normalize(JSON.parse(await f.text()));localStorage.setItem('chanchan_dataset',JSON.stringify(data));E('importMsg').textContent='导入成功：'+data.comps.length+' 条阵容、'+data.items.length+' 条三件套';render()}catch(e){E('importMsg').textContent='导入失败：'+e.message;}});
+E('clear').onclick=()=>{localStorage.removeItem('chanchan_dataset');data=base;E('importMsg').textContent='本地数据已清空';render()};
+try{let v=localStorage.getItem('chanchan_dataset');if(v)data=normalize(JSON.parse(v))}catch(e){localStorage.removeItem('chanchan_dataset')}
+fetch('/api/snapshot').then(r=>r.ok?r.json():null).then(v=>{if(v&&!localStorage.getItem('chanchan_dataset')){data=normalize(v);render()}}).catch(()=>{});
+render();
+})();
+</script></body></html>

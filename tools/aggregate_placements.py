@@ -26,7 +26,7 @@ def convert(rows):
             n=sum(places)
             if n==0:
                 raise ValueError(f"{kind}[{i}] zero samples")
-            obj={key:r.get(key) for key in ("season","patch","name")}
+            obj={key:r.get(key) for key in ("season","patch","mode","rank","name")}
             if kind=="items":
                 obj.update({"unit":r.get("unit"),"items":r.get("items")})
             obj.update({"sample_count":n,"top4_count":sum(places[:4]),"win_count":places[0],

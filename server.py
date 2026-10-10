@@ -27,7 +27,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(json.loads((CATALOG / (season+".json")).read_text(encoding="utf-8")))
             except (OSError, ValueError):
                 return self.send_json({"season":season,"metadata":{"status":"unavailable"},"champions":[],"items":[]})
-        if path in ("/", "/index.html", "/catalog.html", "/catalog.js"):
+        if path in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js"):
             self.path = "/index.html" if path == "/" else path
             return super().do_GET()
         return self.send_error(404, "Not found")

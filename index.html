@@ -20,10 +20,10 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;p
 </style></head>
 <body><header><div class="wrap"><div><h1>⚔ 铲铲实验室</h1><div class="sub">金铲铲之战 · 阵容与装备统计工具</div></div><span class="tag">开发预览 · 无授权实时数据</span></div></header>
 <main class="wrap"><section class="panel"><h2>三件套分析器 · 新功能</h2><p class="muted">选择棋子、锁定两件装备，对比第三件的前四率、登顶率及样本量。只有真实数据时才展示统计。</p><a style="color:#93c5fd;font-weight:700" href="/item-analyzer.html">打开三件套分析器 →</a></section><section class="panel"><h2>新功能：双赛季棋子与装备图鉴</h2><p class="muted">可切换自然之力和画之灵、导入合法赛季资料、编辑九人阵容、导出阵容 JSON。棋子及装备真实资料尚待授权接入。</p><a style="color:#93c5fd;font-weight:700" href="/catalog.html">打开棋子与装备图鉴 →</a></section>
-<div class="toolbar"><select id="season"><option value="nature">自然之力</option><option value="ink">画之灵</option></select><select id="type"><option value="comps">阵容排行</option><option value="items">棋子三件套</option></select><select id="sort"><option value="top4">前四率 ↓</option><option value="win">登顶率 ↓</option><option value="avg">平均排名 ↑</option><option value="sample">样本量 ↓</option></select><input id="search" placeholder="搜索阵容或棋子"></div>
+<div class="toolbar"><select id="season"><option value="nature">自然之力</option><option value="ink">画之灵</option></select><select id="mode"><option value="">全部模式</option></select><select id="rank"><option value="">全部分段</option></select><select id="type"><option value="comps">阵容排行</option><option value="items">棋子三件套</option></select><select id="sort"><option value="top4">前四率 ↓</option><option value="win">登顶率 ↓</option><option value="avg">平均排名 ↑</option><option value="sample">样本量 ↓</option></select><input id="search" placeholder="搜索阵容或棋子"></div>
 <div class="panel"><div class="grid"><div><b>数据状态</b><div id="state" class="muted">正在检查...</div></div><div><b>数据更新</b><div id="updated" class="muted">暂无</div></div></div><p class="muted">没有可靠数据时会显示空状态，不编造胜率。导入文件仅保存在当前浏览器，本地自用不代表拥有公开展示许可。</p></div>
 <section class="panel"><div class="grid"><div><b>当前数据展示模式</b><p id="datasourceTip" class="muted">正在检查…</p></div><div><button id="showServer">查看服务器快照</button> <button id="showLocal">查看本地导入</button></div></div></section><section id="results"></section>
-<section class="panel"><h2>导入合法获取的统计数据</h2><p class="muted">导入 JSON 文件，包含 comps、items 数组。每条记录需有 season（nature/ink）、name、patch、sample_count、top4_count、win_count、rank_sum。items 另需 unit 和 items（三件装备数组）。百分比由样本计数计算，不接受仅填胜率的记录。</p>
+<section class="panel"><h2>导入合法获取的统计数据</h2><p class="muted">导入 JSON 文件，包含 comps、items 数组。每条记录建议标注 mode（游戏模式）和 rank（统计分段）；公开数据接入时这两项为必填。其余必填字段：season（nature/ink）、name、patch、sample_count、top4_count、win_count、rank_sum。items 另需 unit 和 items（三件装备数组）。百分比由样本计数计算，不接受仅填胜率的记录。</p>
 <input id="upload" type="file" accept=".json,application/json"><button id="clear">清空本地数据</button>
 <div id="importMsg" class="muted"></div>
 <details><summary>查看 JSON 示例（所有数值为格式示意，非真实胜率）</summary><pre style="white-space:pre-wrap;font-size:12px">{"comps":[{"season":"nature","patch":"18.3","name":"测试阵容","sample_count":100,"top4_count":50,"win_count":10,"rank_sum":450}],"items":[{"season":"nature","patch":"18.3","name":"测试棋子装备","unit":"测试棋子","items":["装备A","装备B","装备C"],"sample_count":100,"top4_count":50,"win_count":10,"rank_sum":450}]}</pre></details></section>
@@ -51,15 +51,21 @@ return {metadata:obj.metadata||{status:'local-import',generated_at:new Date().to
 }
 function render(){
 let season=E('season').value,kind=E('type').value,sort=E('sort').value,q=E('search').value.trim().toLowerCase();
-let arr=data[kind].filter(r=>r.season===season&&(r.name+' '+(r.unit||'')).toLowerCase().includes(q));
+let scope=data[kind].filter(r=>r.season===season);
+const fill=(id,vals)=>{let e=E(id),old=e.value;e.innerHTML='<option value="">全部'+(id==='mode'?'模式':'分段')+'</option>'+[...new Set(vals)].sort().map(v=>'<option value="'+safe(v)+'">'+safe(v)+'</option>').join('');if(vals.includes(old))e.value=old};
+fill('mode',scope.map(r=>r.mode||'未标注'));
+let mode=E('mode').value;scope=scope.filter(r=>!mode||(r.mode||'未标注')===mode);
+fill('rank',scope.map(r=>r.rank||'未标注'));
+let rank=E('rank').value;
+let arr=scope.filter(r=>(!rank||(r.rank||'未标注')===rank)&&(r.name+' '+(r.unit||'')).toLowerCase().includes(q));
 arr.sort((a,b)=>sort==='top4'?b.top4_count/b.sample_count-a.top4_count/a.sample_count:sort==='win'?b.win_count/b.sample_count-a.win_count/a.sample_count:sort==='avg'?a.rank_sum/a.sample_count-b.rank_sum/b.sample_count:b.sample_count-a.sample_count);
 E('datasourceTip').textContent=mode==='local'?'本地导入文件：只在当前浏览器中保存，不会公开分享，也不会随服务器更新。':'服务器公开快照：来源及版本必须经过授权核验。';
 E('showServer').classList.toggle('active',mode==='server');E('showLocal').classList.toggle('active',mode==='local');
 E('state').textContent=data.metadata.status==='empty'?'未接入真实统计':(data.metadata.status==='local-import'?'本地文件数据':String(data.metadata.status||'已加载快照'));
 E('updated').textContent=data.metadata.generated_at||'来源未提供更新时间';
-E('results').innerHTML=arr.length?arr.map(r=>'<article class="entry"><div style="display:flex;justify-content:space-between;gap:9px"><b>'+safe(r.name)+'</b><span class="tag">'+safe(r.patch)+' · '+safe(r.sample_count)+' 样本</span></div>'+(kind==='items'?'<p class="muted">棋子：'+safe(r.unit)+' ｜三件套：'+r.items.map(safe).join(' / ')+'</p>':'')+'<div class="stats"><div class="stat"><div class="k">前四率</div><div class="v good">'+rate(r.top4_count,r.sample_count)+'</div></div><div class="stat"><div class="k">登顶率</div><div class="v">'+rate(r.win_count,r.sample_count)+'</div></div><div class="stat"><div class="k">平均排名</div><div class="v">'+(r.rank_sum/r.sample_count).toFixed(2)+'</div></div></div></article>').join(''):'<div class="panel empty">当前筛选条件下暂无可验证的统计数据。<br>请导入获准使用的赛季数据，或等待正式数据源接入。</div>';
+E('results').innerHTML=arr.length?arr.map(r=>'<article class="entry"><div style="display:flex;justify-content:space-between;gap:9px"><b>'+safe(r.name)+'</b><span class="tag">'+safe(r.mode||'未标注')+' · '+safe(r.rank||'未标注')+' · '+safe(r.patch)+' · '+safe(r.sample_count)+' 样本</span></div>'+(kind==='items'?'<p class="muted">棋子：'+safe(r.unit)+' ｜三件套：'+r.items.map(safe).join(' / ')+'</p>':'')+'<div class="stats"><div class="stat"><div class="k">前四率</div><div class="v good">'+rate(r.top4_count,r.sample_count)+'</div></div><div class="stat"><div class="k">登顶率</div><div class="v">'+rate(r.win_count,r.sample_count)+'</div></div><div class="stat"><div class="k">平均排名</div><div class="v">'+(r.rank_sum/r.sample_count).toFixed(2)+'</div></div></div></article>').join(''):'<div class="panel empty">当前筛选条件下暂无可验证的统计数据。<br>请导入获准使用的赛季数据，或等待正式数据源接入。</div>';
 }
-['season','type','sort','search'].forEach(id=>E(id).addEventListener(id==='search'?'input':'change',render));
+['season','mode','rank','type','sort','search'].forEach(id=>E(id).addEventListener(id==='search'?'input':'change',render));
 E('upload').addEventListener('change',async function(){try{let f=this.files[0];if(!f)return;if(f.size>5e6)throw Error('文件最大支持 5MB');localData=normalize(JSON.parse(await f.text()));localData.metadata={status:'local-import',generated_at:new Date().toISOString()};localStorage.setItem('chanchan_dataset',JSON.stringify(localData));mode='local';data=localData;E('importMsg').textContent='导入成功：'+data.comps.length+' 条阵容、'+data.items.length+' 条三件套';render()}catch(e){E('importMsg').textContent='导入失败：'+e.message;}});
 E('clear').onclick=()=>{localStorage.removeItem('chanchan_dataset');localData=null;mode='server';data=serverData;E('importMsg').textContent='本地数据已清空，已切换服务器快照';render()};
 E('showServer').onclick=()=>{mode='server';data=serverData;render()};

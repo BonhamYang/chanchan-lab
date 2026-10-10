@@ -11,7 +11,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("items",result)
         self.assertIsInstance(result["comps"],list)
     def test_no_secrets_exposed(self):
-        allowed = ("/", "/index.html", "/api/snapshot", "/api/status")
+        allowed = ("/", "/index.html", "/catalog.html", "/catalog.js", "/api/snapshot", "/api/status", "/api/catalog/nature", "/api/catalog/ink")
         for path in ("/licenses.private.json","/server.py","/inbox/data.csv"):
             self.assertNotIn(path, allowed)
 if __name__=="__main__":

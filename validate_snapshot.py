@@ -23,13 +23,19 @@ def validate(d):
             p=f"{kind}[{i}]"
             if not isinstance(r,dict): errs.append(p+" not object"); continue
             if r.get("season") not in ("nature","ink") or not all(isinstance(r.get(k),str) and r[k] for k in ("patch","name")): errs.append(p+" invalid season/patch/name")
+            # A published snapshot must identify the actual game mode and sample bracket.
+            for dimension in ("mode","rank"):
+                if not isinstance(r.get(dimension),str) or not r[dimension].strip():
+                    errs.append(p+" missing "+dimension)
             n,t,w,rs=(r.get(k) for k in ("sample_count","top4_count","win_count","rank_sum"))
             valid_counts=all(type(v) is int and v>=0 for v in (n,t,w,rs))
             if not valid_counts or n<1 or t>n or w>t or rs<n or rs>8*n: errs.append(p+" invalid counts")
             gear=r.get("items") if kind=="items" else []
             if kind=="items" and (not isinstance(r.get("unit"),str) or not r["unit"].strip() or not isinstance(gear,list) or len(gear)!=3 or not all(isinstance(g,str) and g.strip() for g in gear)): errs.append(p+" invalid gear")
             normalized_gear=tuple(sorted(g.strip() for g in gear)) if isinstance(gear,list) and all(isinstance(g,str) for g in gear) else ()
-            ident=(r.get("season") if isinstance(r.get("season"),str) else None,
+            ident=(r.get("mode") if isinstance(r.get("mode"),str) else None,
+                   r.get("rank") if isinstance(r.get("rank"),str) else None,
+                   r.get("season") if isinstance(r.get("season"),str) else None,
                    r.get("patch") if isinstance(r.get("patch"),str) else None,
                    r.get("unit") if kind=="items" and isinstance(r.get("unit"),str) else r.get("name") if kind=="comps" and isinstance(r.get("name"),str) else None,
                    normalized_gear)

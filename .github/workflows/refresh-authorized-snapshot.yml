@@ -1,0 +1,36 @@
+name: Refresh authorized game statistics
+on:
+  schedule:
+    - cron: '20 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: authorized-snapshot-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run local schema tests
+        run: python -m unittest discover -p 'test_*.py'
+      - name: Fetch only pre-approved provider
+        env:
+          AUTHORIZED_SNAPSHOT_URL: ${{ secrets.AUTHORIZED_SNAPSHOT_URL }}
+          AUTHORIZED_DATA_HOST: ${{ vars.AUTHORIZED_DATA_HOST }}
+        run: python refresh_authorized_snapshot.py
+      - name: Commit approved snapshot when changed
+        run: |
+          if git diff --quiet -- data/snapshot.json; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/snapshot.json
+          git commit -m "data: update authorized daily stats snapshot"
+          git push

@@ -15,8 +15,8 @@
 ## 业务规则
 
 - `metadata.status` 应为 `authorized`，包括 `provider`、`license_reference`、`generated_at`；这些字段**不能替代人工确认许可**。
-- 每条阵容／三件套包含 `season`, `patch`, `name`, `sample_count`, `top4_count`, `win_count`, `rank_sum`；三件套还须有 `unit` 和长度为 3 的 `items` 数组。
-- 不混合赛季、游戏版本、模式、分段；需要数据源提供足够维度才能统计。
+- 每条阵容／三件套包含 `season`, `patch`, `mode`（数据源给出的真实模式标识）, `rank`（数据源给出的真实分段标识）, `name`, `sample_count`, `top4_count`, `win_count`, `rank_sum`；三件套还须有 `unit` 和长度为 3 的 `items` 数组。
+- 不混合赛季、游戏版本、模式、分段；公开快照必须逐条提供 `mode` 和 `rank`，不自行猜测模式标识。既有个人浏览器导入文件可省略，但前端必须明确显示“未标注”。
 - GitHub Actions 写入仓库后，Render 自动部署需要 webhook 正常；当前该连接尚未稳定，可能需手动部署。
 - 当前不会探测来源站点的隐藏 API、绕过访问控制、执行批量网页抓取。
 

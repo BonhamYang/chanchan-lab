@@ -26,7 +26,7 @@ def validate(d):
             n,t,w,rs=(r.get(k) for k in ("sample_count","top4_count","win_count","rank_sum"))
             if not all(type(v) is int and v>=0 for v in (n,t,w,rs)) or (type(n) is int and (n<1 or t>n or w>t or rs<n or rs>8*n)): errs.append(p+" invalid counts")
             if kind=="items" and (not isinstance(r.get("unit"),str) or not isinstance(r.get("items"),list) or len(r["items"])!=3): errs.append(p+" invalid gear")
-            ident=(r.get("season"),r.get("patch"),r.get("name"),str(r.get("items",[])))
+            ident=(r.get("season"),r.get("patch"),r.get("unit","") if kind=="items" else r.get("name"),tuple(sorted(r.get("items",[]))) if kind=="items" and isinstance(r.get("items"),list) else ())
             if ident in keys: errs.append(p+" duplicate")
             keys.add(ident)
     return errs

@@ -29,7 +29,10 @@ def validate(d):
             gear=r.get("items") if kind=="items" else []
             if kind=="items" and (not isinstance(r.get("unit"),str) or not r["unit"].strip() or not isinstance(gear,list) or len(gear)!=3 or not all(isinstance(g,str) and g.strip() for g in gear)): errs.append(p+" invalid gear")
             normalized_gear=tuple(sorted(g.strip() for g in gear)) if isinstance(gear,list) and all(isinstance(g,str) for g in gear) else ()
-            ident=(r.get("season"),r.get("patch"),r.get("unit","") if kind=="items" else r.get("name"),normalized_gear)
+            ident=(r.get("season") if isinstance(r.get("season"),str) else None,
+                   r.get("patch") if isinstance(r.get("patch"),str) else None,
+                   r.get("unit") if kind=="items" and isinstance(r.get("unit"),str) else r.get("name") if kind=="comps" and isinstance(r.get("name"),str) else None,
+                   normalized_gear)
             if ident in keys: errs.append(p+" duplicate")
             keys.add(ident)
     return errs

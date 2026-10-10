@@ -4,14 +4,14 @@
 <main>
 <section><h2>筛选条件</h2><div class="tools">
 <label>赛季<select id="season"><option value="nature">自然之力</option><option value="ink">画之灵</option></select></label>
-<label>棋子<select id="unit"><option value="">全部棋子</option></select></label>
+<label>游戏模式<select id="mode"><option value="">全部模式（分开展示）</option></select></label><label>分段<select id="rank"><option value="">全部分段（分开展示）</option></select></label><label>棋子<select id="unit"><option value="">全部棋子</option></select></label>
 <label>游戏版本<select id="patch"><option value="">全部版本（不跨版本合并）</option></select></label>
 <label>最低样本数<input id="minimum" type="number" min="1" max="10000000" step="1" value="100"></label>
 <label>排序<select id="sort"><option value="top4">前四率高到低</option><option value="win">登顶率高到低</option><option value="avg">平均名次低到高</option><option value="samples">样本数多到少</option></select></label>
 </div>
 <h2>锁定两件装备 <span class="muted">不选择则展示全部三件套</span></h2>
 <div class="tools"><label>第一件<select id="item1"><option value="">不限</option></select></label><label>第二件<select id="item2"><option value="">不限</option></select></label><button id="reset">重置筛选</button></div>
-<p class="muted">勾选的两件装备必须同时出现在同一个三件套中，装备顺序不影响匹配。每条记录单独展示，不将不同赛季、版本或分段的统计混合求和。</p>
+<p class="muted">勾选的两件装备必须同时出现在同一个三件套中，装备顺序不影响匹配。每条记录单独展示，不将不同赛季、模式、分段或版本的统计混合求和。旧数据未提供模式/分段时单独标记为“未标注”。</p>
 <p id="source" class="muted"></p></section>
 <section><div class="tools"><div><h2>组合排行榜 <span id="count" class="muted"></span></h2></div><div><button id="server">服务器公开数据</button> <button id="local">浏览器本地数据</button></div></div><div id="results"></div></section>
 <section><h2>数据说明</h2><p class="muted">服务器目前没有已获授权的国服三件套统计。如果曾在首页导入合法获取的 JSON，可以切换为“浏览器本地数据”分析它。本地文件不会被上传。</p><p class="warning muted">上分建议不能只看百分比：样本量 100～499 局将显示低样本提示；低样本容易出现极端胜率；同一棋子的三件套组合通常受到阵容、经济、强化符文及分段影响，不能证明装备导致胜率变化。</p><a href="/">返回首页导入 JSON →</a></section>

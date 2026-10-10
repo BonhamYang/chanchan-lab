@@ -12,6 +12,20 @@ class TestValidator(unittest.TestCase):
         d=sample();d["metadata"]["status"]="unknown";self.assertTrue(validate(d))
     def test_rejects_impossible_counts(self):
         d=sample();d["comps"][0]["win_count"]=21;self.assertTrue(validate(d))
+    def test_rejects_duplicate_gear_permutations(self):
+        d=sample()
+        row={"season":"nature","patch":"18.3","name":"first","unit":"hero","items":["A","B","C"],"sample_count":20,"top4_count":10,"win_count":2,"rank_sum":90}
+        d["items"]=[row,{**row,"name":"second","items":["C","A","B"]}]
+        self.assertTrue(any("duplicate" in x for x in validate(d)))
+    def test_rejects_malformed_counts_without_crashing(self):
+        d=sample();d["comps"][0]["top4_count"]="invalid"
+        self.assertTrue(validate(d))
+    def test_rejects_invalid_gear_without_crashing(self):
+        d=sample();d["items"]=[{"season":"ink","patch":"x","name":"x","unit":"u","items":[1,2,3],"sample_count":1,"top4_count":1,"win_count":1,"rank_sum":1}]
+        self.assertTrue(validate(d))
+    def test_rejects_null_time(self):
+        d=sample();d["metadata"]["generated_at"]=None
+        self.assertTrue(validate(d))
     def test_rejects_duplicate(self):
         d=sample();d["comps"].append(d["comps"][0].copy());self.assertTrue(validate(d))
 

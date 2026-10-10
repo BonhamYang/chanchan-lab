@@ -16,6 +16,19 @@ jobs:
           python-version: '3.12'
       - name: Compile Python source
         run: python -m compileall -q server.py validate_snapshot.py refresh_authorized_snapshot.py tools
+      - name: Check browser JavaScript parses
+        run: |
+          node --check catalog.js
+          node --check item-analyzer.js
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          content=Path("index.html").read_text(encoding="utf8")
+          match=re.search(r"<script>([\\s\\S]*?)</script>",content)
+          assert match, "missing inline homepage script"
+          Path("/tmp/chanchan-home.js").write_text(match.group(1),encoding="utf8")
+          PY
+          node --check /tmp/chanchan-home.js
       - name: Unit tests
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Check unapproved public catalogs remain empty

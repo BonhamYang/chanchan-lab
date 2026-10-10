@@ -1,0 +1,31 @@
+name: Code checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Python source
+        run: python -m compileall -q server.py validate_snapshot.py refresh_authorized_snapshot.py tools
+      - name: Unit tests
+        run: python -m unittest discover -p 'test_*.py' -v
+      - name: Check unapproved public catalogs remain empty
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for s in ('nature','ink'):
+              d=json.loads(Path('data/catalog',s+'.json').read_text(encoding='utf8'))
+              assert d['season']==s
+              if d.get('metadata',{}).get('status')=='empty':
+                  assert not d['champions'] and not d['items']
+          PY

@@ -4,7 +4,7 @@ from tools.aggregate_placements import convert
 
 def source():
     return {"metadata":{"status":"authorized","provider":"test-fixture-only","license_reference":"unit-test","generated_at":datetime.now(timezone.utc).isoformat()},
-       "comps":[{"season":"nature","patch":"example","name":"example","places":[2,1,1,0,0,0,0,0]}],
+       "comps":[{"season":"nature","patch":"example","mode":"mode-a","rank":"group-a","name":"example","places":[2,1,1,0,0,0,0,0]}],
        "items":[{"season":"ink","patch":"example","name":"example","unit":"example","items":["a","b","c"],"places":[1,0,0,1,0,0,0,1]}]}
 
 class AggregationTests(unittest.TestCase):

@@ -7,6 +7,7 @@ import os
 
 ROOT = Path(__file__).resolve().parent
 SNAPSHOT = ROOT / "data" / "snapshot.json"
+CATALOG = ROOT / "data" / "catalog"
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -18,8 +19,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(self.status())
         if path == "/api/snapshot":
             return self.send_json(self.snapshot())
-        if path in ("/", "/index.html"):
-            self.path = "/index.html"
+        if path.startswith("/api/catalog/"):
+            season = path.removeprefix("/api/catalog/")
+            if season not in ("nature", "ink"):
+                return self.send_error(404, "Unknown season")
+            try:
+                return self.send_json(json.loads((CATALOG / (season+".json")).read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                return self.send_json({"season":season,"metadata":{"status":"unavailable"},"champions":[],"items":[]})
+        if path in ("/", "/index.html", "/catalog.html", "/catalog.js"):
+            self.path = "/index.html" if path == "/" else path
             return super().do_GET()
         return self.send_error(404, "Not found")
 

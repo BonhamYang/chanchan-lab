@@ -37,3 +37,23 @@
 - Riot 官方 TFT API 文档列出 TFT 平台路由，不含金铲铲国服路由；不作为本项目国服数据来源。参考：https://developer.riotgames.com/docs/tft
 
 结论：已核实官方资料入口与两个赛季内部映射，尚未取得可再发布的完整棋子/羁绊/装备集及国服战绩授权。两个公共图鉴保持空数据，不将“入口发现”宣传为“真实数据接入完成”。
+
+## 2026-10-12 第二轮：官方合作通道与开源排除
+
+腾讯游戏来联官方文档为新的可核实合作线索：
+
+- 平台登录说明明确以金铲铲之战举例：https://livelink.qq.com/doc/activities/pages/plat/bind/plat-login-api.html
+- 用户数据授权要求：通过官方平台登录文档导航进入「用户数据授权接入」（不猜测接口地址）
+- 战绩面板：https://livelink.qq.com/doc/activities/pages/ability/streamer-game-record.html
+- 官方联系页：https://livelink.qq.com/doc/activities/pages/contact/
+
+战绩通道需要白名单及账号绑定/授权。该说明不是金铲铲全部战绩字段的开放 API 承诺：仍需官方确认目标游戏支持、第三方工具资格、两个赛季静态资料许可、棋子/装备/名次字段和统计展示权。不能以能绑定金铲铲账号推断能取得全服三件套胜率。
+
+新增开源核验（通过 GitHub API 读取 README/LICENSE）：
+- `caoaolong/jcc-tui`：README 声明仅供学习，游戏数据来自第三方站；LICENSE 返回 404。排除直接复制。
+- `xuanxuan88HDDD/jcc-database`：README 列出旧赛季 JSONP 数据，仅限学习交流；不证明目标赛季覆盖或公开再发布许可。
+- `ONISAN1999/gs-helper`：README 同时写 Golden Spatula / TFT Set 18，LICENSE 返回 404；不能证明为金铲铲国服目标赛季。
+
+`dataj.cc` 当前公共首页显示自然之力和统计更新时间，但没有核实正式第三方 API 或镜像许可。未请求隐藏接口、批量采集或复制它的榜单。类似 datatft 域名的搜索结果缺少可验证关系，不作为授权证明或联系人来源。
+
+个人实战路线已实现：用户自填结算数据 → 本地去重 → 按赛季/补丁/模式/段位聚合 → 排行榜和三件套查询。数据标记为「个人手动记录（未独立核验）」，不上传、不作为全服样本。

@@ -29,7 +29,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(json.loads((CATALOG / (season+".json")).read_text(encoding="utf-8")))
             except (OSError, ValueError):
                 return self.send_json({"season":season,"metadata":{"status":"unavailable"},"champions":[],"items":[]})
-        if path in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js"):
+        if path in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js", "/match-journal.html", "/match-journal.js", "/match-data.js"):
             self.path = "/index.html" if path == "/" else path
             return super().do_GET()
         return self.send_error(404, "Not found")
@@ -38,7 +38,7 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path.startswith("/api/"):
             return self.do_GET()
-        if path not in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js"):
+        if path not in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js", "/match-journal.html", "/match-journal.js", "/match-data.js"):
             return self.send_error(404, "Not found")
         self.path = "/index.html" if path == "/" else path
         return super().do_HEAD()

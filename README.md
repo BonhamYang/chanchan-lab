@@ -29,3 +29,9 @@ node --check import-stats.js
 查看 DATA_SOURCES.md、DATA_PIPELINE.md、STATIC_CATALOG_IMPORT.md 和 CSV_IMPORT_GUIDE.md。
 
 公开统计只能接入独立核实且允许存储与展示的金铲铲国服数据。TFT 国际服及历史返场前版本不能替代目标数据。不要提交密钥、个人信息或未经许可的数据。
+
+## 我的实战数据
+
+`/match-journal.html` 支持结算页手动记录 → 对局 ID 去重 → 本地备份与合并 → 自动生成个人阵容和三件套统计。记录仅留在浏览器，不读取账号。只支持八名个人排名；双人四队名次不混算。新增测试：`node test_match_data.js`。
+
+这条路线能积累真实个人样本，不能替代全服榜单。官方合作线索和可发送申请见 DATA_PARTNERSHIP_REQUEST.md。

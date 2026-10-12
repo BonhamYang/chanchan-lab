@@ -22,6 +22,8 @@ jobs:
           node --check item-analyzer.js
           node --check import-stats.js
           node --check test_import_stats.js
+          node --check match-data.js
+          node --check match-journal.js
           python - <<'PY'
           from pathlib import Path
           import re
@@ -32,7 +34,9 @@ jobs:
           PY
           node --check /tmp/chanchan-home.js
       - name: CSV importer behavior tests
-        run: node test_import_stats.js
+        run: |
+          node test_import_stats.js
+          node test_match_data.js
       - name: Unit tests
         run: |
           python -m unittest discover -p 'test_*.py' -v

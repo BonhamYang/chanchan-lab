@@ -53,6 +53,7 @@ function convert(text){
  return data;
 }
 function exportJson(data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='chanchan-statistics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1200)}
+el('template').onclick=()=>{const blob=new Blob([required.concat(['unit','item1','item2','item3']).join(',')+'\n'],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='chanchan-match-template.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1200)};
 let converted=null;
 el('csv').onchange=async e=>{converted=null;el('import').disabled=true;el('download').disabled=true;try{
  const file=e.target.files[0];if(!file)return;if(file.size>2_000_000)throw Error('CSV 文件不得超过 2MB');

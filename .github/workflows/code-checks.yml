@@ -20,6 +20,8 @@ jobs:
         run: |
           node --check catalog.js
           node --check item-analyzer.js
+          node --check import-stats.js
+          node --check test_import_stats.js
           python - <<'PY'
           from pathlib import Path
           import re
@@ -29,6 +31,8 @@ jobs:
           Path("/tmp/chanchan-home.js").write_text(match.group(1),encoding="utf8")
           PY
           node --check /tmp/chanchan-home.js
+      - name: CSV importer behavior tests
+        run: node test_import_stats.js
       - name: Unit tests
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Check unapproved public catalogs remain empty

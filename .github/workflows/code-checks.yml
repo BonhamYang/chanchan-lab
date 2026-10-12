@@ -26,7 +26,7 @@ jobs:
           from pathlib import Path
           import re
           content=Path("index.html").read_text(encoding="utf8")
-          match=re.search(r"<script>([\\s\\S]*?)</script>",content)
+          match=re.search(r"<script>([\s\S]*?)</script>",content)
           assert match, "missing inline homepage script"
           Path("/tmp/chanchan-home.js").write_text(match.group(1),encoding="utf8")
           PY
@@ -34,7 +34,9 @@ jobs:
       - name: CSV importer behavior tests
         run: node test_import_stats.js
       - name: Unit tests
-        run: python -m unittest discover -p 'test_*.py' -v
+        run: |
+          python -m unittest discover -p 'test_*.py' -v
+          python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check unapproved public catalogs remain empty
         run: |
           python - <<'PY'

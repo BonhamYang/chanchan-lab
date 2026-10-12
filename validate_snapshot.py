@@ -10,6 +10,7 @@ def validate(d):
     if not isinstance(m,dict): return ["metadata missing"]
     for k in ("provider","license_reference","generated_at"):
         if not isinstance(m.get(k),str) or not m[k].strip(): errs.append("metadata."+k+" missing")
+    if m.get("game") != "jcc-cn": errs.append("metadata.game must identify jcc-cn")
     if m.get("status")!="authorized": errs.append("source is not registered as authorized")
     try:
         dt=datetime.fromisoformat(m["generated_at"].replace("Z","+00:00"))
@@ -29,7 +30,11 @@ def validate(d):
                     errs.append(p+" missing "+dimension)
             n,t,w,rs=(r.get(k) for k in ("sample_count","top4_count","win_count","rank_sum"))
             valid_counts=all(type(v) is int and v>=0 for v in (n,t,w,rs))
-            if not valid_counts or n<1 or t>n or w>t or rs<n or rs>8*n: errs.append(p+" invalid counts")
+            if not valid_counts or max(n,t,w,rs)>2**53-1 or n<1 or t>n or w>t or rs<n or rs>8*n: errs.append(p+" invalid counts")
+            if valid_counts and 0 <= w <= t <= n:
+                minimum=w+2*(t-w)+5*(n-t)
+                maximum=w+4*(t-w)+8*(n-t)
+                if not minimum <= rs <= maximum: errs.append(p+" rank_sum inconsistent with placement counts")
             gear=r.get("items") if kind=="items" else []
             if kind=="items" and (not isinstance(r.get("unit"),str) or not r["unit"].strip() or not isinstance(gear,list) or len(gear)!=3 or not all(isinstance(g,str) and g.strip() for g in gear)): errs.append(p+" invalid gear")
             normalized_gear=tuple(sorted(g.strip() for g in gear)) if isinstance(gear,list) and all(isinstance(g,str) for g in gear) else ()

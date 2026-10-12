@@ -21,6 +21,8 @@ jobs:
       - name: Fetch only pre-approved provider
         env:
           AUTHORIZED_SNAPSHOT_URL: ${{ secrets.AUTHORIZED_SNAPSHOT_URL }}
+          AUTHORIZED_DATA_PROVIDER: ${{ vars.AUTHORIZED_DATA_PROVIDER }}
+          AUTHORIZED_LICENSE_REFERENCE: ${{ vars.AUTHORIZED_LICENSE_REFERENCE }}
           AUTHORIZED_DATA_HOST: ${{ vars.AUTHORIZED_DATA_HOST }}
         run: python refresh_authorized_snapshot.py
       - name: Commit approved snapshot when changed

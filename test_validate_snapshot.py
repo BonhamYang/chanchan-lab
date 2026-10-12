@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from validate_snapshot import validate
 
 def sample():
-    return {"metadata":{"status":"authorized","provider":"test","license_reference":"test-only","generated_at":datetime.now(timezone.utc).isoformat()},
+    return {"metadata":{"status":"authorized","game":"jcc-cn","provider":"test","license_reference":"test-only","generated_at":datetime.now(timezone.utc).isoformat()},
       "comps":[{"season":"nature","patch":"18.3","mode":"mode-a","rank":"group-a","name":"sample","sample_count":20,"top4_count":10,"win_count":2,"rank_sum":90}],"items":[]}
 
 class TestValidator(unittest.TestCase):

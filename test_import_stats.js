@@ -2,7 +2,7 @@
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync('import-stats.js','utf8');
-const instrumented=source.replace('let converted=null;', 'return {convert,csvRows};\nlet converted=null;');
+const instrumented=source.replace("el('template').onclick=", "return {convert,csvRows};\nel('template').onclick=");
 assert.notEqual(instrumented,source,'converter test hook not found');
 const {convert,csvRows}=new Function('return '+instrumented)();
 const head='season,patch,mode,tier,kind,name,unit,item1,item2,item3,placement,count';

@@ -4,6 +4,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 import json
 import os
+from validate_snapshot import validate
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
 SNAPSHOT = ROOT / "data" / "snapshot.json"
@@ -32,16 +34,36 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         return self.send_error(404, "Not found")
 
+    def do_HEAD(self):
+        path = urlsplit(self.path).path
+        if path.startswith("/api/"):
+            return self.do_GET()
+        if path not in ("/", "/index.html", "/catalog.html", "/catalog.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js"):
+            return self.send_error(404, "Not found")
+        self.path = "/index.html" if path == "/" else path
+        return super().do_HEAD()
+
     def snapshot(self):
         try:
             data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-            return data if isinstance(data.get("comps"), list) and isinstance(data.get("items"), list) else {"metadata":{"status":"invalid"},"comps":[],"items":[]}
+            if isinstance(data,dict) and isinstance(data.get("metadata"),dict):
+                if data["metadata"].get("status")=="empty" and data.get("comps")==[] and data.get("items")==[]:
+                    return data
+                if not validate(data):
+                    return data
+            return {"metadata":{"status":"invalid"},"comps":[],"items":[]}
         except (OSError, ValueError):
             return {"metadata":{"status":"unavailable"},"comps":[],"items":[]}
 
     def status(self):
         data = self.snapshot()
-        return {"status":data.get("metadata",{}).get("status","unknown"),"counts":{"comps":len(data["comps"]),"items":len(data["items"])}}
+        metadata=data.get("metadata",{})
+        generated=metadata.get("generated_at")
+        age=None
+        if generated:
+            try: age=max(0,(datetime.now(timezone.utc)-datetime.fromisoformat(generated.replace("Z","+00:00"))).total_seconds())
+            except (ValueError,TypeError): pass
+        return {"status":metadata.get("status","unknown"),"generated_at":generated,"stale":age is not None and age>172800,"counts":{"comps":len(data["comps"]),"items":len(data["items"])}}
 
     def send_json(self, value):
         payload = json.dumps(value, ensure_ascii=False).encode("utf-8")
@@ -51,7 +73,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options","nosniff")
         self.send_header("Content-Length",str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        if self.command != "HEAD":
+            self.wfile.write(payload)
 
 if __name__ == "__main__":
     port=int(os.getenv("PORT","8765"))

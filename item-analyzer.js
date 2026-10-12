@@ -14,7 +14,7 @@ const uniq=a=>[...new Set(a)].sort((a,b)=>String(a).localeCompare(String(b),'zh'
 function render(){
  const season=$('season').value,rows=current.items.filter(r=>r.season===season);
  fill('mode',uniq(rows.map(r=>r.mode||'未标注')),'全部模式（分开展示）');
- const mode=$('mode').value,modeRows=rows.filter(r=>!mode||(r.mode||'未标注')===mode);
+ const selectedMode=$('mode').value,modeRows=rows.filter(r=>!selectedMode||(r.mode||'未标注')===selectedMode);
  fill('rank',uniq(modeRows.map(r=>r.rank||'未标注')),'全部分段（分开展示）');
  const rank=$('rank').value,scoped=modeRows.filter(r=>!rank||(r.rank||'未标注')===rank);
  fill('unit',uniq(scoped.map(r=>r.unit)),'全部棋子');

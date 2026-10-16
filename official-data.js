@@ -3,6 +3,27 @@
 const BASE='https://game.gtimg.cn/images/lol/act/jkzlk/js';
 const INDEX=BASE+'/config/versiondataconfig.js';
 const SEASONS={nature:{name:'自然之力',mode:'18',season:'S19'},ink:{name:'画之灵',mode:'11',season:'S100030'}};
+async function requestJSON(url,options,fetcher,label,maxSize,onProgress){
+ const retryAllowed=!options.method||options.method==='GET';
+ for(let attempt=0;attempt<(retryAllowed?2:1);attempt++){
+  if(onProgress)onProgress(label+(attempt?'：连接中断，正在重试一次…':'：正在连接官网…'));
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+  try{
+   const response=await fetcher(url,{...options,signal:controller.signal});
+   if(!response.ok)throw Error(label+'失败（HTTP '+response.status+'）');
+   const body=await response.text();if(body.length>maxSize)throw Error(label+'响应超过大小限制');
+   try{return JSON.parse(body.replace(/^\uFEFF/,''))}catch{throw Error(label+'不再返回有效 JSON，拒绝更新')}
+  }catch(error){
+   const network=error?.name==='TypeError'||['AbortError','TimeoutError'].includes(error?.name);
+   if(!network)throw error;
+   const offline=typeof navigator!=='undefined'&&navigator.onLine===false;
+   if(retryAllowed&&attempt===0&&!offline)continue;
+   const timeout=controller.signal.aborted||['AbortError','TimeoutError'].includes(error?.name);
+   const why=offline?'浏览器当前离线':timeout?'连接超过20秒，已停止等待':'浏览器未能连接来源；可能是网络、跨域限制或浏览器拦截，尚不能确定';
+   throw Error(label+'失败（'+new URL(url).hostname+'）：'+why+'。可切换网络或在系统浏览器重试；无需清除缓存');
+  }finally{clearTimeout(timer)}
+ }
+}
 function selectVersion(index,season){
  const expected=SEASONS[season];if(!expected||!Array.isArray(index))throw Error('未知赛季或官网版本索引格式变更');
  const rows=index.filter(r=>r&&r.name===expected.name&&Number(r.is_newest_version)===1&&String(r.mode)===expected.mode&&r.season===expected.season);
@@ -46,17 +67,14 @@ function catalog(season,version,chess,trait,equip){
  if(!champions.length||!items.length)throw Error('官网返回空资料，保留现有资料');
  return {season,metadata:{game:'jcc-cn',status:'official-browser',provider:'腾讯金铲铲官网（本机直接读取）',patch:version.version,version_start_time:version.version_start_time,upstream_mode:version.mode,upstream_season:version.season,retrieved_at:new Date().toISOString(),source_urls:[INDEX,BASE+version.herourl,BASE+version.traiturl,BASE+version.equipurl]},champions,forms,items,traits:[...traitMap.values()].map(t=>({...t,breakpoints:t.breakpoints.sort((a,b)=>a-b)}))};
 }
-async function readOfficial(season,fetcher){
+async function readOfficial(season,fetcher,onProgress){
  if(typeof fetcher!=='function')throw Error('缺少请求实现');
- async function get(url){
-  const response=await fetcher(url,{credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
-  if(!response.ok)throw Error('官网读取失败（HTTP '+response.status+'），保留现有资料');
-  const body=await response.text();if(body.length>2500000)throw Error('官网响应超过大小限制');
-  try{return JSON.parse(body.replace(/^\uFEFF/,''))}catch{throw Error('官网不再返回 JSON，保留现有资料')}
- }
- const version=selectVersion(await get(INDEX),season);
- // Bounded explicit action: one index and three documents for one selected season.
- const [chess,trait,equip]=await Promise.all([get(BASE+version.herourl),get(BASE+version.traiturl),get(BASE+version.equipurl)]);
+ const get=(url,label)=>requestJSON(url,{credentials:'omit',redirect:'error'},fetcher,label,2500000,onProgress);
+ const version=selectVersion(await get(INDEX,'官网版本索引'),season);
+ // Each GET can retry once on a network failure; POST requests are never automatically repeated.
+ const documents=await Promise.allSettled([get(BASE+version.herourl,'官网棋子资料'),get(BASE+version.traiturl,'官网羁绊资料'),get(BASE+version.equipurl,'官网装备资料')]);
+ const failed=documents.find(r=>r.status==='rejected');if(failed)throw failed.reason;
+ const [chess,trait,equip]=documents.map(r=>r.value);
  return catalog(season,version,chess,trait,equip);
 }
 function normalizeRates(response,context){
@@ -85,9 +103,7 @@ async function readBuilds(season,heroId,book,fetcher,tier='0'){
  if(!expected||book.season!==season||book.metadata?.status!=='official-browser'||String(book.metadata.upstream_mode)!==expected.mode||book.metadata.upstream_season!==expected.season||!hero||!/^1\d{4}$/.test(heroId))throw Error('先读取并选择本赛季官网棋子资料');
  const patchStart=Date.parse(book.metadata.version_start_time);if(!Number.isFinite(patchStart))throw Error('官网资料缺少版本生效时间，请重新读取');
  const url='https://mlol.qt.qq.com/go/jgame/get_hero_equip_ranking';
- const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({heroid:heroId.slice(1),tier_part:tier,set_id:expected.mode,time_type:'1'}),signal:AbortSignal.timeout(20000)});
- if(!response.ok)throw Error('官方统计暂不可用（HTTP '+response.status+'）');
- const text=await response.text();if(text.length>1500000)throw Error('官方统计响应超出限制');const payload=JSON.parse(text);
+ const payload=await requestJSON(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({heroid:heroId.slice(1),tier_part:tier,set_id:expected.mode,time_type:'1'})},fetcher,'官网棋子三件套统计',1500000);
  if(payload.result===0&&!payload.data?.dtstatdate)throw Error('官方暂未提供该棋子或赛季的有效统计日期');
  const result=normalizeRates(payload,{game:'jcc-cn',season,patch:'统计版本未提供（资料 '+book.metadata.patch+'）',mode:'官方默认统计（未细分玩法）',rank:buildTiers[tier]+'（官网 tier_part='+tier+'）',unit:hero.name,scope_verified:true,rate_unit:'fraction'});
  const date=result.metadata.stat_date,stamp=Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8));
@@ -148,10 +164,8 @@ async function readLineups(book,fetcher,tier='0'){
  const url='https://mlol.qt.qq.com/go/jgame/common_proxy_v2';
  const expected=SEASONS[book?.season];if(!expected||book.metadata?.upstream_season!==expected.season||String(book.metadata?.upstream_mode)!==expected.mode)throw Error('阵容赛季身份未经核实');
  const queue=book.season==='ink'?'2030':'31';
- const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({req_group:[{req_alias:'lineup_group_list',req_params:{queue_id:queue,tier_part:tier,time_type:'1',version_id:'v6'}}]}),signal:AbortSignal.timeout(20000)});
- if(!response.ok)throw Error('官方阵容暂不可用（HTTP '+response.status+'）');
- const body=await response.text();if(body.length>5000000)throw Error('官方阵容响应超过大小限制');
- const result=normalizeLineups(JSON.parse(body),book,Date.now(),tier);result.metadata.source_url=url;return result;
+ const payload=await requestJSON(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({req_group:[{req_alias:'lineup_group_list',req_params:{queue_id:queue,tier_part:tier,time_type:'1',version_id:'v6'}}]})},fetcher,'官网阵容统计',5000000);
+ const result=normalizeLineups(payload,book,Date.now(),tier);result.metadata.source_url=url;return result;
 }
-const api={selectVersion,catalog,readOfficial,normalizeRates,readBuilds,normalizeLineups,readLineups,boardDetails};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
+const api={requestJSON,selectVersion,catalog,readOfficial,normalizeRates,readBuilds,normalizeLineups,readLineups,boardDetails};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

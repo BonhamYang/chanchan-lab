@@ -26,7 +26,7 @@ el('lineup').innerHTML=lineup().length?lineup().map((id,i)=>{const h=heroes(data
 }
 let officialBusy=false;
 el('readOfficial').onclick=async()=>{if(officialBusy)return;const selected=season();officialBusy=true;el('readOfficial').disabled=true;el('officialStatus').textContent='正在读取官网版本、棋子、羁绊和装备资料…';
-try{const next=check(await ChanchanOfficial.readOfficial(selected,window.fetch.bind(window)),selected);const merged={...local,[selected]:next};localStorage.setItem('cc_local_catalog',JSON.stringify(merged));local=merged;lineups[selected]=(lineups[selected]||[]).filter(id=>heroes(next).some(h=>h.id===id));store();draw();el('officialStatus').textContent=(selected==='nature'?'自然之力':'画之灵')+'官网资料已保存到本机：'+next.champions.length+' 名棋子、'+next.items.length+' 件装备。';}
+try{const next=check(await ChanchanOfficial.readOfficial(selected,window.fetch.bind(window),message=>{el('officialStatus').textContent=message}),selected);const merged={...local,[selected]:next};localStorage.setItem('cc_local_catalog',JSON.stringify(merged));local=merged;lineups[selected]=(lineups[selected]||[]).filter(id=>heroes(next).some(h=>h.id===id));store();draw();el('officialStatus').textContent=(selected==='nature'?'自然之力':'画之灵')+'官网资料已保存到本机：'+next.champions.length+' 名棋子、'+next.items.length+' 件装备。';}
 catch(e){el('officialStatus').textContent='读取未完成：'+e.message+'。现有资料已保留，可稍后重试或使用本地导入。';}
 finally{officialBusy=false;el('readOfficial').disabled=false}};
 let buildBusy=false;

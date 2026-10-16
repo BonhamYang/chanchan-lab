@@ -18,6 +18,8 @@ jobs:
         run: python -m compileall -q server.py validate_snapshot.py refresh_authorized_snapshot.py tools
       - name: Check browser JavaScript parses
         run: |
+          node --check official-data.js
+          node --check test_official_data.js
           node --check catalog.js
           node --check item-analyzer.js
           node --check import-stats.js
@@ -37,6 +39,7 @@ jobs:
         run: |
           node test_import_stats.js
           node test_match_data.js
+          node test_official_data.js
       - name: Unit tests
         run: |
           python -m unittest discover -p 'test_*.py' -v

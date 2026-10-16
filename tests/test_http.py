@@ -18,7 +18,7 @@ class HTTPTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as exc: urlopen(Request(self.base+path,method=method))
                 self.assertEqual(exc.exception.code,404)
     def test_pages_and_catalogs(self):
-        for path in ('/','/catalog.html','/item-analyzer.html','/import-stats.html','/match-journal.html','/match-data.js','/match-journal.js','/api/catalog/nature','/api/catalog/ink'):
+        for path in ('/','/catalog.html','/item-analyzer.html','/import-stats.html','/match-journal.html','/match-data.js','/match-journal.js','/official-data.js','/api/catalog/nature','/api/catalog/ink'):
             with urlopen(self.base+path) as r:self.assertEqual(r.status,200)
     def test_head_api_has_no_body(self):
         with urlopen(Request(self.base+'/api/status',method='HEAD')) as r:

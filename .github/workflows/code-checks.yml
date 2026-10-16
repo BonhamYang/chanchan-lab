@@ -42,6 +42,7 @@ jobs:
           node test_match_data.js
           node test_official_data.js
           node test_official_lineups.js
+          node test_official_lineups_ui.js
       - name: Unit tests
         run: |
           python -m unittest discover -p 'test_*.py' -v

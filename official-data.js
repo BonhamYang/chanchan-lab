@@ -101,7 +101,7 @@ async function readBuilds(season,heroId,book,fetcher){
 const LINEUP_TIERS={'0':'大师以上','1':'钻石以上','255':'全部段位'};
 function normalizeLineups(payload,book,now=Date.now(),tier='0'){
  if(!Object.hasOwn(LINEUP_TIERS,tier))throw Error('未经核实的阵容分段');
- if(book?.season!=='nature'||book.metadata?.status!=='official-browser'||String(book.metadata.upstream_mode)!=='18'||book.metadata.upstream_season!=='S19')throw Error('当前仅核实自然之力阵容身份');
+ const expected=SEASONS[book?.season];if(!expected||book.metadata?.status!=='official-browser'||String(book.metadata.upstream_mode)!==expected.mode||book.metadata.upstream_season!==expected.season)throw Error('阵容赛季身份未经核实');
  const packet=payload?.data;if(payload?.result!==0||!Array.isArray(packet)||packet.length!==1||packet[0]?.code!==0)throw Error('官方阵容响应失败或格式变更');
  const data=packet[0].data,date=String(data?.dtstatdate??'');
  if(!/^\d{8}$/.test(date))throw Error('官方阵容没有有效统计日期');
@@ -130,13 +130,14 @@ function normalizeLineups(payload,book,now=Date.now(),tier='0'){
   }
  }
  if(!output.length)throw Error('没有能与目标赛季棋子和羁绊同时对应的阵容');
- return {schema:'jcc-lineup-rates/v1',metadata:{game:'jcc-cn',season:'nature',static_patch:book.metadata.patch,statistics_patch:null,stat_date:date,retrieved_at:new Date(now).toISOString(),queue_id:'31',tier_part:tier,mode:'官方默认队列（玩法名称未核实）',rank:LINEUP_TIERS[tier],excluded_variants:excluded},comps:output};
+ return {schema:'jcc-lineup-rates/v1',metadata:{game:'jcc-cn',season:book.season,static_patch:book.metadata.patch,statistics_patch:null,stat_date:date,retrieved_at:new Date(now).toISOString(),queue_id:book.season==='ink'?'2030':'31',tier_part:tier,mode:book.season==='ink'?'标准排位（官网场景2030）':'官方默认队列（玩法名称未核实）',rank:LINEUP_TIERS[tier],excluded_variants:excluded},comps:output};
 }
 async function readLineups(book,fetcher,tier='0'){
  if(!Object.hasOwn(LINEUP_TIERS,tier))throw Error('未经核实的阵容分段');
  const url='https://mlol.qt.qq.com/go/jgame/common_proxy_v2';
- if(book?.season!=='nature')throw Error('尚未核实画之灵阵容队列，不跨赛季替代');
- const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({req_group:[{req_alias:'lineup_group_list',req_params:{queue_id:'31',tier_part:tier,time_type:'1',version_id:'v6'}}]}),signal:AbortSignal.timeout(20000)});
+ const expected=SEASONS[book?.season];if(!expected||book.metadata?.upstream_season!==expected.season||String(book.metadata?.upstream_mode)!==expected.mode)throw Error('阵容赛季身份未经核实');
+ const queue=book.season==='ink'?'2030':'31';
+ const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({req_group:[{req_alias:'lineup_group_list',req_params:{queue_id:queue,tier_part:tier,time_type:'1',version_id:'v6'}}]}),signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw Error('官方阵容暂不可用（HTTP '+response.status+'）');
  const body=await response.text();if(body.length>5000000)throw Error('官方阵容响应超过大小限制');
  const result=normalizeLineups(JSON.parse(body),book,Date.now(),tier);result.metadata.source_url=url;return result;

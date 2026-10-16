@@ -23,18 +23,18 @@ function catalog(season,version,chess,trait,equip){
   const id=String(r.checkId??'').trim(),name=String(r.name??'').trim(),num=Number(r.num);
   if(!id||!name||!Number.isSafeInteger(num)||num<0)throw Error('羁绊标识或档位无效');
   if(traitMap.has(id)&&traitMap.get(id).name!==name)throw Error('同一羁绊标识映射到多个名称');
-  const t=traitMap.get(id)||{id,name,breakpoints:[]};if(num>0&&!t.breakpoints.includes(num))t.breakpoints.push(num);traitMap.set(id,t);
+  const t=traitMap.get(id)||{id,name,breakpoints:[],upstream_ids:[]};if(num>0&&!t.breakpoints.includes(num))t.breakpoints.push(num);t.upstream_ids.push(String(r.id));traitMap.set(id,t);
  }
- const champions=[];
+ const champions=[],forms=[];
  for(const r of rows(chess,version)){
-  if(String(r.heroType)!=='0'||String(r.showHeroTag)!=='1')continue;
+  if(String(r.heroType)!=='0'||!['0','1'].includes(String(r.showHeroTag)))continue;
   // Official documents include star-level variants; keep the one-star identity only.
   if(!/^1\d{4}$/.test(String(r.id)))continue;
   const cost=Number(r.price),id=String(r.id??''),name=String(r.name??'').trim();
   if(!id||!name||!Number.isSafeInteger(cost)||cost<1||cost>5)throw Error('可玩棋子的名称或费用无效');
   const ids=[...new Set([r.class,r.species].flatMap(v=>String(v??'').split(/[,|]/)).map(v=>v.trim()).filter(v=>v&&v!=='-1'&&v!=='0'))];
   if(ids.some(v=>!traitMap.has(v)))throw Error('棋子羁绊无法映射，拒绝部分更新');
-  champions.push({id,name,cost,traits:ids.map(v=>traitMap.get(v).name)});
+  (String(r.showHeroTag)==='1'?champions:forms).push({id,name,cost,traits:ids.map(v=>traitMap.get(v).name)});
  }
  const items=rows(equip,version).map(r=>{
   const id=String(r.id??''),name=String(r.name??'').trim();if(!id||!name)throw Error('装备缺少 ID 或名称');
@@ -44,7 +44,7 @@ function catalog(season,version,chess,trait,equip){
  if(itemMap.size!==items.length||new Set(champions.map(r=>r.id)).size!==champions.length)throw Error('棋子或装备 ID 重复');
  for(const r of items){if(r.components.some(id=>!itemMap.has(id)))throw Error('装备合成引用不完整');r.components=r.components.map(id=>itemMap.get(id))}
  if(!champions.length||!items.length)throw Error('官网返回空资料，保留现有资料');
- return {season,metadata:{game:'jcc-cn',status:'official-browser',provider:'腾讯金铲铲官网（本机直接读取）',patch:version.version,version_start_time:version.version_start_time,upstream_mode:version.mode,upstream_season:version.season,retrieved_at:new Date().toISOString(),source_urls:[INDEX,BASE+version.herourl,BASE+version.traiturl,BASE+version.equipurl]},champions,items,traits:[...traitMap.values()].map(t=>({...t,breakpoints:t.breakpoints.sort((a,b)=>a-b)}))};
+ return {season,metadata:{game:'jcc-cn',status:'official-browser',provider:'腾讯金铲铲官网（本机直接读取）',patch:version.version,version_start_time:version.version_start_time,upstream_mode:version.mode,upstream_season:version.season,retrieved_at:new Date().toISOString(),source_urls:[INDEX,BASE+version.herourl,BASE+version.traiturl,BASE+version.equipurl]},champions,forms,items,traits:[...traitMap.values()].map(t=>({...t,breakpoints:t.breakpoints.sort((a,b)=>a-b)}))};
 }
 async function readOfficial(season,fetcher){
  if(typeof fetcher!=='function')throw Error('缺少请求实现');
@@ -97,5 +97,46 @@ async function readBuilds(season,heroId,book,fetcher){
  result.metadata.source_url=url;result.metadata.retrieved_at=new Date().toISOString();result.metadata.mode_supported=false;result.metadata.static_patch=book.metadata.patch;result.metadata.statistics_patch=null;
  return result;
 }
-const api={selectVersion,catalog,readOfficial,normalizeRates,readBuilds};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
+
+function normalizeLineups(payload,book,now=Date.now()){
+ if(book?.season!=='nature'||book.metadata?.status!=='official-browser'||String(book.metadata.upstream_mode)!=='18'||book.metadata.upstream_season!=='S19')throw Error('当前仅核实自然之力阵容身份');
+ const packet=payload?.data;if(payload?.result!==0||!Array.isArray(packet)||packet.length!==1||packet[0]?.code!==0)throw Error('官方阵容响应失败或格式变更');
+ const data=packet[0].data,date=String(data?.dtstatdate??'');
+ if(!/^\d{8}$/.test(date))throw Error('官方阵容没有有效统计日期');
+ const stamp=Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8)),start=Date.parse(book.metadata.version_start_time);
+ if(new Date(stamp).toISOString().slice(0,10).replace(/-/g,'')!==date||!Number.isFinite(start)||stamp<start||stamp>now+86400000||now-stamp>3*86400000)throw Error('阵容日期无效、过期或早于资料版本');
+ if(!Array.isArray(data.main_traits_data)||!data.main_traits_data.length)throw Error('官方暂无阵容统计');
+ const heroes=new Map([...book.champions,...(book.forms||[])].map(h=>[h.id.slice(1),h.name]));
+ const traits=new Map((book.traits||[]).flatMap(t=>(t.upstream_ids||[]).map(id=>[id,t.name])));
+ const output=[],seen=new Set();let excluded=0,groupNumber=0;
+ const equipment=new Map(book.items?.map(i=>[i.id,i.name])||[]);
+ const number=(v,label)=>{if((typeof v!=='string'&&typeof v!=='number')||String(v).trim()===''||!Number.isFinite(Number(v)))throw Error('阵容'+label+'无效');return Number(v)};
+ for(const group of data.main_traits_data){
+  groupNumber++;
+  if(!Array.isArray(group?.info?.list))throw Error('官方阵容分组结构变更');
+  for(const row of group.info.list){
+   if(!Array.isArray(row.lineup)||!row.lineup.length||row.lineup.length>12)throw Error('阵容棋子结构无效');
+   const ids=row.lineup.map(String),main=row.main_trait_group;
+   if(new Set(ids).size!==ids.length||ids.some(id=>!heroes.has(id))||!Array.isArray(main)||!main.length||main.some(t=>!traits.has(String(t.trait_id)))){excluded++;continue}
+   const win=number(row.top_1_rate,'登顶率'),top4=number(row.top_4_rate,'前四率'),avg=number(row.avg_rank,'排名'),uses=number(row.use_num,'使用次数');
+   if(win<0||win>top4||top4>1||avg<1||avg>8||!Number.isSafeInteger(uses)||uses<1)throw Error('阵容统计超出范围');
+   // A group aggregate and its variants overlap. Only keep variant rows, never sum them.
+   const variant=number(row.lineup_rank,'变体编号');if(!Number.isSafeInteger(variant)||variant<1||typeof group.id!=='string'||!group.id)throw Error('阵容变体身份无效');
+   const key=JSON.stringify([group.id,variant]);
+   if(seen.has(key))throw Error('官方阵容变体重复');seen.add(key);
+   output.push({key,group_number:groupNumber,variant,core_units:(row.core_chess||[]).map(id=>heroes.get(String(id))).filter(Boolean),equipment:(row.main_c_chess_equip||[]).map(id=>equipment.get(String(id))||'未映射装备 '+String(id)),units:ids.map(id=>heroes.get(id)),name:[...new Set(main.map(t=>traits.get(String(t.trait_id))))].join(' / '),win_rate:win,top4_rate:top4,average_rank:avg,use_count:uses,stat_date:date});
+  }
+ }
+ if(!output.length)throw Error('没有能与目标赛季棋子和羁绊同时对应的阵容');
+ return {schema:'jcc-lineup-rates/v1',metadata:{game:'jcc-cn',season:'nature',static_patch:book.metadata.patch,statistics_patch:null,stat_date:date,retrieved_at:new Date(now).toISOString(),queue_id:'31',tier_part:'0',mode:'官方默认队列（玩法名称未核实）',rank:'官方默认分段（名称未核实）',excluded_variants:excluded},comps:output};
+}
+async function readLineups(book,fetcher){
+ const url='https://mlol.qt.qq.com/go/jgame/common_proxy_v2';
+ if(book?.season!=='nature')throw Error('尚未核实画之灵阵容队列，不跨赛季替代');
+ const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({req_group:[{req_alias:'lineup_group_list',req_params:{queue_id:'31',tier_part:'0',time_type:'1',version_id:'v6'}}]}),signal:AbortSignal.timeout(20000)});
+ if(!response.ok)throw Error('官方阵容暂不可用（HTTP '+response.status+'）');
+ const body=await response.text();if(body.length>5000000)throw Error('官方阵容响应超过大小限制');
+ const result=normalizeLineups(JSON.parse(body),book);result.metadata.source_url=url;return result;
+}
+const api={selectVersion,catalog,readOfficial,normalizeRates,readBuilds,normalizeLineups,readLineups};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

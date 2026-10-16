@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),api=require('./official-data.js');
+const date=new Date().toISOString().slice(0,10).replace(/-/g,''),book={season:'nature',metadata:{status:'official-browser',upstream_mode:'18',upstream_season:'S19',patch:'fixture',version_start_time:'2020-01-01'},champions:[{id:'11500',name:'fixture-a'},{id:'12500',name:'fixture-b'}],forms:[{id:'15461',name:'fixture-form'}],traits:[{name:'fixture-trait',upstream_ids:['1230101']}]};
+const row={lineup_rank:'1',lineup:['1500','2500','5461'],main_trait_group:[{trait_id:'1230101'}],top_1_rate:'0.1',top_4_rate:'0.6',avg_rank:'4.0',use_num:'300'};
+const payload=(rows=[row],d=date)=>({result:0,data:[{code:0,data:{dtstatdate:d,main_traits_data:[{id:'fixture-group',info:{info:{sum:{use_num:'99999'}},list:rows}}]}}]});
+let out=api.normalizeLineups(payload(),book);assert.equal(out.comps.length,1);assert.equal(out.comps[0].use_count,300);assert.equal(out.metadata.statistics_patch,null);assert.ok(!('win_count' in out.comps[0]));assert.equal(out.comps[0].units[2],'fixture-form');
+assert.throws(()=>api.normalizeLineups(payload(),{...book,season:'ink'}),/仅核实/);
+assert.throws(()=>api.normalizeLineups(payload([row,row]),book),/重复/);
+assert.throws(()=>api.normalizeLineups(payload([{...row,top_1_rate:'0.9'}]),book),/范围/);
+assert.throws(()=>api.normalizeLineups(payload([{...row,use_num:'3.5'}]),book),/范围/);
+assert.throws(()=>api.normalizeLineups(payload([], '20200101'),book),/日期/);
+assert.throws(()=>api.normalizeLineups(payload([{...row,lineup:['9999']}]),book),/没有/);
+assert.throws(()=>api.normalizeLineups(payload([{...row,main_trait_group:[{trait_id:'other-season'}]}]),book),/没有/);
+out=api.normalizeLineups(payload([row,{...row,lineup:['9999']}]),book);assert.equal(out.metadata.excluded_variants,1);assert.equal(out.comps.length,1);
+(async()=>{let calls=0;await api.readLineups(book,async(url,o)=>{calls++;assert.equal(o.credentials,'omit');assert.equal(JSON.parse(o.body).req_group[0].req_params.queue_id,'31');return {ok:true,text:async()=>JSON.stringify(payload())}});assert.equal(calls,1);await assert.rejects(()=>api.readLineups({...book,season:'ink'},()=>{throw Error('must not fetch')}),/队列/);console.log('PASS: official lineup identity, forms, variant-only counts, no inferred wins, overlap rejection, dates, bounds and single request')})().catch(e=>{console.error(e);process.exitCode=1});

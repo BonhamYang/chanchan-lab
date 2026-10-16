@@ -19,6 +19,7 @@ jobs:
       - name: Check browser JavaScript parses
         run: |
           node --check official-data.js
+          node --check official-lineups.js
           node --check test_official_data.js
           node --check catalog.js
           node --check item-analyzer.js
@@ -40,6 +41,7 @@ jobs:
           node test_import_stats.js
           node test_match_data.js
           node test_official_data.js
+          node test_official_lineups.js
       - name: Unit tests
         run: |
           python -m unittest discover -p 'test_*.py' -v

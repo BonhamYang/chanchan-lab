@@ -60,6 +60,6 @@ el('csv').onchange=async e=>{converted=null;el('import').disabled=true;el('downl
  converted=convert(await file.text());el('result').textContent='校验通过：阵容 '+converted.comps.length+' 组，三件套 '+converted.items.length+' 组。数据来源由你自行确认。';
  el('import').disabled=false;el('download').disabled=false
 }catch(err){el('result').textContent='校验失败：'+err.message}};
-el('import').onclick=()=>{if(!converted)return;try{localStorage.setItem('chanchan_dataset',JSON.stringify(converted));el('result').textContent='已保存到当前浏览器。返回主页后点击「查看本地导入」，或者打开三件套分析器选择「浏览器本地数据」。';}catch(e){el('result').textContent='浏览器存储不足，请先点「下载转换后的 JSON」并在首页导入。'}};
+el('import').onclick=()=>{if(!converted)return;try{localStorage.setItem('chanchan_dataset',JSON.stringify(converted));el('result').textContent='已保存到当前浏览器。前往「导入统计」页后点击「查看本地导入」，或者打开三件套分析器选择「浏览器本地数据」。';}catch(e){el('result').textContent='浏览器存储不足，请先点「下载转换后的 JSON」并在「导入统计」页导入。'}};
 el('download').onclick=()=>{if(converted)exportJson(converted)};
 })();

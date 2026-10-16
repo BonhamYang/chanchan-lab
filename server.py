@@ -30,7 +30,7 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError, ValueError):
                 return self.send_json({"season":season,"metadata":{"status":"unavailable"},"champions":[],"items":[]})
         if path in ("/", "/index.html", "/catalog.html", "/catalog.js", "/official-data.js", "/official-lineups.html", "/official-lineups.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js", "/match-journal.html", "/match-journal.js", "/match-data.js"):
-            self.path = "/index.html" if path == "/" else path
+            self.path = "/official-lineups.html" if path == "/" else path
             return super().do_GET()
         return self.send_error(404, "Not found")
 
@@ -40,7 +40,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.do_GET()
         if path not in ("/", "/index.html", "/catalog.html", "/catalog.js", "/official-data.js", "/official-lineups.html", "/official-lineups.js", "/item-analyzer.html", "/item-analyzer.js", "/import-stats.html", "/import-stats.js", "/match-journal.html", "/match-journal.js", "/match-data.js"):
             return self.send_error(404, "Not found")
-        self.path = "/index.html" if path == "/" else path
+        self.path = "/official-lineups.html" if path == "/" else path
         return super().do_HEAD()
 
     def snapshot(self):

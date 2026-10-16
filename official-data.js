@@ -79,25 +79,36 @@ function normalizeRates(response,context){
  }
  return {schema:'jcc-rate-only/v1',metadata:{game:'jcc-cn',status:'local-rate-import',provider:'腾讯官方组合响应（用户本机导入）',stat_date:date,sample_count_available:false,excluded_non_three_item:excluded},items};
 }
-async function readBuilds(season,heroId,book,fetcher){
+async function readBuilds(season,heroId,book,fetcher,tier='0'){
+ const buildTiers={'0':'大师以上','255':'全部段位'};if(!Object.hasOwn(buildTiers,tier))throw Error('三件套暂不支持该阵容分段口径，请选择大师以上或全部段位');
  const expected=SEASONS[season];const hero=book?.champions?.find(h=>h.id===heroId);
  if(!expected||book.season!==season||book.metadata?.status!=='official-browser'||String(book.metadata.upstream_mode)!==expected.mode||book.metadata.upstream_season!==expected.season||!hero||!/^1\d{4}$/.test(heroId))throw Error('先读取并选择本赛季官网棋子资料');
  const patchStart=Date.parse(book.metadata.version_start_time);if(!Number.isFinite(patchStart))throw Error('官网资料缺少版本生效时间，请重新读取');
  const url='https://mlol.qt.qq.com/go/jgame/get_hero_equip_ranking';
- const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({heroid:heroId.slice(1),tier_part:'0',set_id:expected.mode,time_type:'1'}),signal:AbortSignal.timeout(20000)});
+ const response=await fetcher(url,{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({heroid:heroId.slice(1),tier_part:tier,set_id:expected.mode,time_type:'1'}),signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw Error('官方统计暂不可用（HTTP '+response.status+'）');
  const text=await response.text();if(text.length>1500000)throw Error('官方统计响应超出限制');const payload=JSON.parse(text);
  if(payload.result===0&&!payload.data?.dtstatdate)throw Error('官方暂未提供该棋子或赛季的有效统计日期');
- const result=normalizeRates(payload,{game:'jcc-cn',season,patch:'统计版本未提供（资料 '+book.metadata.patch+'）',mode:'官方默认统计（未细分玩法）',rank:'大师以上（官网 tier_part=0）',unit:hero.name,scope_verified:true,rate_unit:'fraction'});
+ const result=normalizeRates(payload,{game:'jcc-cn',season,patch:'统计版本未提供（资料 '+book.metadata.patch+'）',mode:'官方默认统计（未细分玩法）',rank:buildTiers[tier]+'（官网 tier_part='+tier+'）',unit:hero.name,scope_verified:true,rate_unit:'fraction'});
  const date=result.metadata.stat_date,stamp=Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8));
  if(stamp<patchStart||Date.now()-stamp>3*86400000)throw Error('官方统计过期或早于当前版本，保留已有统计');
  const itemMap=new Map(book.items.map(i=>[i.id,i.name]));
- for(const row of result.items){if(row.items.some(id=>!itemMap.has(id)))throw Error('统计装备不属于本赛季资料，拒绝映射');row.items=row.items.map(id=>itemMap.get(id));row.unit_id=heroId}
+ for(const row of result.items){if(row.items.some(id=>!itemMap.has(id)))throw Error('统计装备不属于本赛季资料，拒绝映射');row.items=row.items.map(id=>itemMap.get(id));row.unit_id=heroId;row.tier_part=tier}
  if(!result.items.length)throw Error('该棋子或赛季尚无可核实的三件套统计');
- result.metadata.source_url=url;result.metadata.retrieved_at=new Date().toISOString();result.metadata.mode_supported=false;result.metadata.static_patch=book.metadata.patch;result.metadata.statistics_patch=null;
+ result.metadata.tier_part=tier;result.metadata.source_url=url;result.metadata.retrieved_at=new Date().toISOString();result.metadata.mode_supported=false;result.metadata.static_patch=book.metadata.patch;result.metadata.statistics_patch=null;
  return result;
 }
 
+function boardDetails(ids,book){
+ const expected=SEASONS[book?.season];if(!expected||book.metadata?.status!=='official-browser'||book.metadata.upstream_season!==expected.season||String(book.metadata.upstream_mode)!==expected.mode)throw Error('请重新读取目标赛季官网资料');
+ if(!Array.isArray(ids)||!ids.length||ids.length>12||new Set(ids).size!==ids.length)throw Error('阵容棋子数量或身份无效');
+ const heroes=new Map([...book.champions,...(book.forms||[])].map(h=>[h.id,h]));
+ if(ids.some(id=>!heroes.has(id)))throw Error('阵容棋子不属于当前赛季资料，请更新阵容');
+ const units=ids.map(id=>heroes.get(id)),counts=new Map(),names=new Set();
+ for(const h of units){if(names.has(h.name))continue;names.add(h.name);for(const t of new Set(h.traits))counts.set(t,(counts.get(t)||0)+1)}
+ const synergies=[...counts].map(([name,count])=>{const thresholds=book.traits.find(t=>t.name===name)?.breakpoints||[];return {name,count,active:thresholds.filter(n=>n<=count).at(-1)||null,breakpoints:thresholds}}).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'zh'));
+ return {unit_ids:ids.slice(),unit_details:units.map(h=>({id:h.id,name:h.name,cost:h.cost})),synergies};
+}
 const LINEUP_TIERS={'0':'大师以上','1':'钻石以上','255':'全部段位'};
 function normalizeLineups(payload,book,now=Date.now(),tier='0'){
  if(!Object.hasOwn(LINEUP_TIERS,tier))throw Error('未经核实的阵容分段');
@@ -126,7 +137,7 @@ function normalizeLineups(payload,book,now=Date.now(),tier='0'){
    const variant=number(row.lineup_rank,'变体编号');if(!Number.isSafeInteger(variant)||variant<1||typeof group.id!=='string'||!group.id)throw Error('阵容变体身份无效');
    const key=JSON.stringify([group.id,variant]);
    if(seen.has(key))throw Error('官方阵容变体重复');seen.add(key);
-   output.push({key,group_number:groupNumber,variant,core_units:(row.core_chess||[]).map(id=>heroes.get(String(id))).filter(Boolean),equipment:(row.main_c_chess_equip||[]).map(id=>equipment.get(String(id))||'未映射装备 '+String(id)),units:ids.map(id=>heroes.get(id)),name:[...new Set(main.map(t=>traits.get(String(t.trait_id))))].join(' / '),win_rate:win,top4_rate:top4,average_rank:avg,use_count:uses,stat_date:date});
+   output.push({...boardDetails(ids.map(id=>'1'+id),book),key,group_number:groupNumber,variant,core_units:(row.core_chess||[]).map(id=>heroes.get(String(id))).filter(Boolean),equipment:(row.main_c_chess_equip||[]).map(id=>equipment.get(String(id))||'未映射装备 '+String(id)),units:ids.map(id=>heroes.get(id)),name:[...new Set(main.map(t=>traits.get(String(t.trait_id))))].join(' / '),win_rate:win,top4_rate:top4,average_rank:avg,use_count:uses,stat_date:date});
   }
  }
  if(!output.length)throw Error('没有能与目标赛季棋子和羁绊同时对应的阵容');
@@ -142,5 +153,5 @@ async function readLineups(book,fetcher,tier='0'){
  const body=await response.text();if(body.length>5000000)throw Error('官方阵容响应超过大小限制');
  const result=normalizeLineups(JSON.parse(body),book,Date.now(),tier);result.metadata.source_url=url;return result;
 }
-const api={selectVersion,catalog,readOfficial,normalizeRates,readBuilds,normalizeLineups,readLineups};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
+const api={selectVersion,catalog,readOfficial,normalizeRates,readBuilds,normalizeLineups,readLineups,boardDetails};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ChanchanOfficial=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

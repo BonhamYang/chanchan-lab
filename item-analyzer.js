@@ -52,12 +52,12 @@ function render(){
 for(const id of ['season','mode','rank','unit','patch','item1','item2','sort','minimum'])$(id).addEventListener(id==='minimum'?'input':'change',render);
 $('reset').onclick=()=>{for(const id of ['mode','rank','unit','patch','item1','item2'])$(id).value='';$('minimum').value='100';render()};
 $('server').onclick=()=>{mode='server';current=server;render()};
-$('local').onclick=()=>{if(!local){$('source').textContent='未找到本地数据：请先返回首页导入 JSON';return}mode='local';current=local;render()};
+$('local').onclick=()=>{if(!local){$('source').textContent='未找到本地数据：请前往导入统计页导入 JSON';return}mode='local';current=local;render()};
 $('official').onclick=()=>{if(!official){$('source').textContent='先到赛季图鉴读取官网资料，再选择一名棋子查询三件套';return}mode='official';current=official;render()};
 try{const saved=localStorage.getItem('cc_official_rates');if(saved)official=readRates(JSON.parse(saved))}catch{official=null}
 try{const saved=localStorage.getItem('chanchan_dataset');if(saved)local=readData(JSON.parse(saved))}catch(e){local=null}
 fetch('/api/snapshot').then(r=>r.ok?r.json():null).then(d=>{server=readData(d);if(mode==='server')current=server;render()}).catch(()=>{render()});
 if(new URLSearchParams(window.location.search).get('source')==='local'&&local){mode='local';current=local;$('minimum').value='1'}
-const query=new URLSearchParams(window.location.search);if(query.get('source')==='official'&&official){mode='official';current=official;if(['nature','ink'].includes(query.get('season')))$('season').value=query.get('season');render();if(official.items.some(r=>r.unit===query.get('unit')))$('unit').value=query.get('unit')}
+const query=new URLSearchParams(window.location.search);if(query.get('from')==='lineup'){const back=$('backToLineup');back.hidden=false;back.href='/?season='+(['nature','ink'].includes(query.get('season'))?query.get('season'):'nature')+'&tier='+(['0','1','255'].includes(query.get('tier'))?query.get('tier'):'0')}if(query.get('source')==='official'&&official){mode='official';current=official;if(['nature','ink'].includes(query.get('season')))$('season').value=query.get('season');render();const selectedTier=query.get('tier');const selectedRow=official.items.find(r=>r.season===$('season').value&&(r.tier_part||'0')===selectedTier);if(selectedRow){$('rank').value=selectedRow.rank;render()}if(official.items.some(r=>r.unit===query.get('unit')))$('unit').value=query.get('unit')}
 render();
 })();

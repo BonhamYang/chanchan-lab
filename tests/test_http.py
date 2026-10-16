@@ -20,6 +20,9 @@ class HTTPTests(unittest.TestCase):
     def test_pages_and_catalogs(self):
         for path in ('/','/catalog.html','/item-analyzer.html','/import-stats.html','/match-journal.html','/match-data.js','/match-journal.js','/official-data.js','/official-lineups.html','/official-lineups.js','/api/catalog/nature','/api/catalog/ink'):
             with urlopen(self.base+path) as r:self.assertEqual(r.status,200)
+    def test_home_is_real_lineup_dashboard(self):
+        with urlopen(self.base+"/") as r: self.assertIn("真实阵容排行榜",r.read().decode())
+        with urlopen(self.base+"/index.html") as r: self.assertIn("直接导入对局统计",r.read().decode())
     def test_head_api_has_no_body(self):
         with urlopen(Request(self.base+'/api/status',method='HEAD')) as r:
             self.assertEqual(r.status,200);self.assertEqual(r.read(),b'')
